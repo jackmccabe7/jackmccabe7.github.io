@@ -5,7 +5,7 @@ import spotipy.util as util
 
 app = Flask(__name__)
 
-@app.route('/')
+@app.route('/index')
 def index():
     cid = "10de425754a24e64a4310b06b5ec4500"
     secret = "af680065d39d41ddbaa209a27fb3d14a"
