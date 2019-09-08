@@ -1,41 +1,58 @@
+#THIS VERSION WORKS, GOD BLESS
+#uses bottle instead of flask to handle user authorisation but works much the same as before
+
+from bottle import route, run, request
 import spotipy
-from flask import Flask
-from spotipy.oauth2 import SpotifyClientCredentials
-import spotipy.util as util
+from spotipy import oauth2
 
-app = Flask(__name__)
+#PORT_NUMBER = 8888
+SPOTIPY_CLIENT_ID = '7730860bf70a42aba37104ee5ae6fc09'
+SPOTIPY_CLIENT_SECRET = '208090a49a554342bd669bf0da06fda5'
+SPOTIPY_REDIRECT_URI = 'http://localhost:8080/'
+SCOPE = 'user-library-read user-top-read'
+CACHE = '.spotipyoauthcache'
 
-@app.route('/index')
+sp_oauth = oauth2.SpotifyOAuth(SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI, scope=SCOPE, cache_path=CACHE)
+
+@route('/')
 def index():
-    cid = "10de425754a24e64a4310b06b5ec4500"
-    secret = "af680065d39d41ddbaa209a27fb3d14a"
-    username = ""
-    artists = []
 
-    client_credentials_manager = SpotifyClientCredentials(client_id=cid, client_secret=secret)
-    sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
-    scope = 'user-library-read user-top-read'
-    token = util.prompt_for_user_token(username, scope)
+    access_token = ""
 
-    if token:
-        sp = spotipy.Spotify(auth=token)
+    token_info = sp_oauth.get_cached_token()
+
+    if token_info:
+        print("Found cached token!")
+        access_token = token_info['access_token']
+    else:
+        url = request.url
+        code = sp_oauth.parse_response_code(url)
+        if code:
+            print("Found Spotify auth code in Request URL! Trying to get valid access token...")
+            token_info = sp_oauth.get_access_token(code)
+            access_token = token_info['access_token']
+
+    if access_token:
+        artists = []
+        print("Access token available! Trying to get user information...")
+        sp = spotipy.Spotify(access_token)
         topartists_long = sp.current_user_top_artists(limit=50, offset=0, time_range='long_term')
         result = ""
         for artist in topartists_long['items']:
             artists.append(artist['name'])
         result = '<br/>'.join(artists)
         return "Top 50 artists (all time):<br/> %s" % result
-            #return artist['name']
-            #print(artist['name'])
-
 
     else:
-        print("Can't get token for", username)
+        return htmlForLoginButton()
 
+def htmlForLoginButton():
+    auth_url = getSPOauthURI()
+    htmlLoginButton = "<a href='" + auth_url + "'>Login to Spotify</a>"
+    return htmlLoginButton
 
+def getSPOauthURI():
+    auth_url = sp_oauth.get_authorize_url()
+    return auth_url
 
-if __name__ == "__main__":
-    app.run(debug=True)
-
-#clientID = "10de425754a24e64a4310b06b5ec4500"
-#clientSecret = "af680065d39d41ddbaa209a27fb3d14a"
+run(host='localhost')
